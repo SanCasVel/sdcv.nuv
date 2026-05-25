@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>sdcv.nuv</title>
+    <style>
+        :root {
+            /* Theme Colors */
+            --bg-color: #000000;
+            --text-color: #FFFFFF;
+            --accent-color: #B4DD1E; /* Green for Dark Mode */
+            
+            /* Global Sizing & Positioning */
+            --font-huge: 7vw;
+            --font-med: 4vw;
+            --font-small: 1.2vw;
+            
+            --hey-top: 15vh;
+            --hey-left: 5vw;
+            
+            /* Dynamic variables controlled by JS for flawless transitions */
+            --dynamic-here-top: 35vh;
+            --dynamic-here-left: 28vw;
+            --dynamic-contact-right: 5vw;
+        }
+
+        /* Light Mode Overrides */
+        body.light-mode {
+            --bg-color: #FFFFFF;
+            --text-color: #000000;
+            --accent-color: #BD00B0; /* Purple for Light Mode */
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.4s ease, color 0.4s ease;
+            overflow-x: hidden;
+            font-weight: 400;
+            position: relative;
+        }
+
+        /* --- Effects Overlay (1.1px Blur) --- */
+        #effects-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            pointer-events: none;
+            backdrop-filter: blur(1.1px);
+            -webkit-backdrop-filter: blur(1.1px);
+            /* Noise opacity in matrix 0.08 */
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='1' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0, 0 0 0 0 0, 0 0 0 0 0, 0 0 0 0.08 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+            transition: opacity 0.5s ease;
+            opacity: 1; /* Default on */
+        }
+
+        /* --- View Container & Transitions --- */
+        #app-container {
+            position: relative;
+            width: 100%;
+            min-height: 100vh;
+        }
+
+        .view {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        /* When active, relative positioning allows the container to naturally expand its height */
+        .view.active {
+            opacity: 1;
+            pointer-events: auto;
+            position: relative;
+            min-height: 100vh;
+        }
+
+        /* --- Bottom Navigation --- */
+        .bottom-nav {
+            position: fixed; 
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5vw 2vw;
+            z-index: 999;
+            font-size: calc(var(--font-small) - 5pt); 
+        }
+
+        .link, button {
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: inherit;
+        }
+
+        .accent-text {
+            color: var(--accent-color);
+            transition: color 0.4s ease;
+        }
+
+        /* Effects Toggle Button */
+        .effects-toggle-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .toggle-track {
+            width: 36px;
+            height: 18px;
+            border: 1px solid var(--text-color);
+            border-radius: 20px;
+            position: relative;
+            cursor: pointer;
+            transition: border-color 0.4s;
+        }
+
+        .toggle-knob {
+            width: 12px;
+            height: 12px;
+            background-color: var(--accent-color);
+            border-radius: 50%;
+            position: absolute;
+            top: 2px;
+            left: 3px;
+            transition: left 0.3s ease, background-color 0.4s ease;
+        }
+
+        .toggle-track.on .toggle-knob {
+            left: 19px;
+        }
+
+        /* --- Shared Persistent Elements --- */
+        .persistent {
+            position: absolute;
+            font-size: var(--font-huge);
+            letter-spacing: -0.03em;
+            line-height: 1;
+            z-index: 100;
+        }
+
+        #persistent-hey {
+            top: var(--hey-top);
+            left: var(--hey-left);
+        }
+
+        /* Dynamically positioned via JS */
+        #persistent-here {
+            top: var(--dynamic-here-top);
+            left: var(--dynamic-here-left);
+            cursor: pointer;
+        }
+
+        /* --- Home View Specifics --- */
+        #view-home.active {
+            overflow: hidden; 
+            height: 100vh;
+        }
+
+        .home-phrase {
+            position: absolute;
+            top: 35vh;
+            left: var(--hey-left);
+            display: flex;
+            align-items: flex-start;
+            gap: 1.5vw;
+            z-index: 10;
+        }
+
+        .you-are-text {
+            font-size: var(--font-huge);
+            letter-spacing: -0.03em;
+            line-height: 1;
+        }
+
+        .waterfall-wrapper {
+            position: relative;
+        }
+
+        .ghost-word {
+            font-size: var(--font-huge);
+            letter-spacing: -0.03em;
+            line-height: 1;
+            visibility: hidden;
+            white-space: nowrap; 
+            pointer-events: none;
+        }
+
+        .waterfall-track-container {
+            position: absolute;
+            top: -100vh; 
+            bottom: -100vh; 
+            left: 0;
+            right: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: flex-start;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .waterfall-track {
+            display: flex;
+            flex-direction: column;
+            animation: waterfall 15s linear infinite;
+        }
+
+        @keyframes waterfall {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-50%); }
+        }
+
+        .waterfall-word {
+            font-size: var(--font-huge);
+            line-height: 1;
+            letter-spacing: -0.03em;
+            color: transparent;
+            -webkit-text-stroke: 1px var(--text-color);
+            margin: 0;
+            padding: 0;
+            transition: -webkit-text-stroke 0.4s ease;
+            white-space: nowrap; 
+        }
+
+        #view-home .input-section {
+            position: absolute;
+            top: var(--hey-top);
+            right: var(--hey-left);
+            font-size: 2vw;
+            display: flex;
+            align-items: center;
+            gap: 1vw;
+            z-index: 20;
+        }
+
+        #custom-word {
+            background: transparent;
+            border: 1px solid var(--text-color);
+            color: var(--text-color);
+            padding: 0.5vw 1vw;
+            font-size: 1.5vw;
+            width: 12vw;
+            outline: none;
+            font-family: inherit;
+        }
+
+        /* --- About & Contact Shared Content Layout --- */
+        .about-content, .contact-content {
+            position: relative; 
+            padding-top: 55vh;
+            padding-left: var(--hey-left);
+            font-size: var(--font-huge);
+            letter-spacing: -0.02em;
+            line-height: 1.15;
+            padding-bottom: 20vh; 
+        }
+
+        /* --- About View Specifics --- */
+        #view-about .my-name-is {
+            position: absolute;
+            top: var(--hey-top);
+            left: 20vw;
+            font-size: var(--font-huge);
+            letter-spacing: -0.03em;
+            line-height: 1;
+            /* Elevates the text above the invisible content padding layer */
+            z-index: 50; 
+        }
+
+        #view-about .contact-btn {
+            position: absolute;
+            top: var(--dynamic-here-top);
+            right: var(--dynamic-contact-right);
+            font-size: var(--font-huge);
+            letter-spacing: -0.03em;
+            line-height: 1;
+            cursor: pointer;
+            /* Elevates the button above the invisible content padding layer so it can be clicked */
+            z-index: 50; 
+        }
+
+        #to-portfolio-btn {
+            display: inline;
+            cursor: pointer;
+        }
+
+        /* --- Contact View Specifics --- */
+        #view-contact .for-inquiries {
+            position: absolute;
+            top: var(--hey-top);
+            left: var(--hey-left); 
+            font-size: var(--font-huge);
+            letter-spacing: -0.03em;
+            line-height: 1;
+            white-space: nowrap;
+            /* Elevates the text above the invisible content padding layer */
+            z-index: 50; 
+        }
+
+        /* --- Portfolio View Specifics --- */
+        #view-portfolio .portfolio-header {
+            padding-top: var(--hey-top);
+            padding-left: var(--hey-left);
+            margin-bottom: 5vh;
+        }
+        
+        #view-portfolio .huge-text {
+            font-size: var(--font-huge);
+            line-height: 1;
+            letter-spacing: -0.03em;
+        }
+
+        .portfolio-nav {
+            display: flex;
+            gap: 8vw;
+            margin-left: 25vw;
+            font-size: var(--font-huge);
+            letter-spacing: -0.03em;
+            line-height: 1;
+            margin-top: 1vw;
+            margin-bottom: 1vw;
+        }
+
+        .portfolio-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2vw;
+            padding: 0 var(--hey-left) 15vh var(--hey-left);
+        }
+
+        .grid-item {
+            background-color: #222;
+            width: 100%;
+            border-radius: 4px;
+        }
+        body.light-mode .grid-item { background-color: #E0E0E0; }
+
+        .item-tall { aspect-ratio: 9/16; }
+        .item-square { aspect-ratio: 1/1; }
+        .item-wide { aspect-ratio: 16/9; }
+        .item-auto { aspect-ratio: 3/4; }
+    </style>
+</head>
+<body class="dark-mode">
+
+    <div id="effects-overlay"></div>
+
+    <nav class="bottom-nav">
+        <button id="logo-btn" class="link">sdcv.nuv</button>
+        <button id="theme-btn" class="link">white</button>
+        <div class="effects-toggle-wrapper">
+            <span>effects:</span>
+            <div id="effects-btn" class="toggle-track on">
+                <div class="toggle-knob"></div>
+            </div>
+        </div>
+    </nav>
+
+    <main id="app-container">
+        
+        <div id="persistent-hey" class="persistent">hey,</div>
+        <div id="persistent-here" class="persistent accent-text">here</div>
+
+        <section id="view-home" class="view active">
+            
+            <div class="home-phrase">
+                <div class="you-are-text">you're</div>
+                
+                <div class="waterfall-wrapper">
+                    <div id="ghost-word" class="ghost-word">safe</div>
+                    
+                    <div class="waterfall-track-container">
+                        <div id="waterfall-track" class="waterfall-track"></div>
+                    </div>
+                </div>
+
+                <div id="ghost-here" class="ghost-word">here‎ </div>
+            </div>
+
+            <div class="input-section">
+                <span>— or</span>
+                <input type="text" id="custom-word" placeholder="" autocomplete="off">
+            </div>
+        </section>
+
+        <section id="view-about" class="view">
+            <div class="my-name-is">my name is</div>
+            <div id="about-contact-btn" class="contact-btn accent-text">contact</div>
+            
+            <div class="about-content">
+                santiago castellanos.<br>
+                I'm a graphic designer<br>
+                from Venezuela based<br>
+                in alicante, spain.<br>
+                i specialize in product,<br>
+                brand and web design.<br>
+                <span id="to-portfolio-btn" class="accent-text">look at some of the<br>stuff i've done!</span>
+            </div>
+        </section>
+
+        <section id="view-portfolio" class="view">
+            <div class="portfolio-header">
+                <div class="huge-text accent-text">look at some</div>
+                <div class="portfolio-nav">
+                    <span id="back-btn" class="accent-text link">back</span>
+                    <span id="portfolio-contact-btn" class="accent-text link">contact</span>
+                </div>
+                <div class="huge-text accent-text">of the stuff</div>
+                <div class="huge-text accent-text">i've done!</div>
+            </div>
+
+            <div class="portfolio-grid">
+                <div style="display: flex; flex-direction: column; gap: 2vw;">
+                    <div class="grid-item item-tall"></div>
+                    <div class="grid-item item-auto"></div>
+                    <div class="grid-item item-auto"></div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 2vw;">
+                    <div class="grid-item item-square"></div>
+                    <div class="grid-item item-wide"></div>
+                    <div class="grid-item item-wide"></div>
+                    <div class="grid-item item-tall" style="aspect-ratio: 3/5;"></div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 2vw;">
+                    <div class="grid-item item-auto"></div>
+                    <div class="grid-item item-wide"></div>
+                    <div class="grid-item item-wide"></div>
+                    <div class="grid-item item-wide"></div>
+                    <div class="grid-item item-tall"></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-contact" class="view">
+            <div class="for-inquiries">for inquiries, services</div>
+            
+            <div class="contact-content">
+                and/or business,<br>
+                please email:<br>
+                sdcv.nuv@business.com
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // --- State Management ---
+        let currentState = 'HOME';
+
+        function switchState(newState) {
+            document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+            
+            const hey = document.getElementById('persistent-hey');
+            const here = document.getElementById('persistent-here');
+
+            if (newState === 'HOME') {
+                document.getElementById('view-home').classList.add('active');
+                hey.style.display = 'block';
+                here.style.display = 'block';
+                window.scrollTo({top: 0, behavior: 'instant'});
+            } 
+            else if (newState === 'ABOUT') {
+                document.getElementById('view-about').classList.add('active');
+                hey.style.display = 'block';
+                here.style.display = 'block';
+                window.scrollTo({top: 0, behavior: 'instant'});
+            } 
+            else if (newState === 'PORTFOLIO') {
+                document.getElementById('view-portfolio').classList.add('active');
+                hey.style.display = 'none';
+                here.style.display = 'none';
+                window.scrollTo({top: 0, behavior: 'instant'});
+            }
+            else if (newState === 'CONTACT') {
+                document.getElementById('view-contact').classList.add('active');
+                hey.style.display = 'none'; // Hides 'hey,' perfectly on this page
+                here.style.display = 'block'; // Keeps 'here' so users can navigate back
+                window.scrollTo({top: 0, behavior: 'instant'});
+            }
+            currentState = newState;
+        }
+
+        // --- Navigation Listeners ---
+        document.getElementById('persistent-here').addEventListener('click', () => {
+            // Allows 'here' button to navigate logically backward from contact too
+            if (currentState === 'HOME') switchState('ABOUT');
+            else if (currentState === 'ABOUT' || currentState === 'CONTACT') switchState('HOME');
+        });
+
+        document.getElementById('logo-btn').addEventListener('click', () => {
+            switchState('HOME');
+        });
+
+        document.getElementById('to-portfolio-btn').addEventListener('click', () => {
+            switchState('PORTFOLIO');
+        });
+
+        document.getElementById('back-btn').addEventListener('click', () => {
+            switchState('ABOUT');
+        });
+
+        // Universal listeners for "contact" buttons guaranteeing they always lead to the Contact page
+        document.getElementById('about-contact-btn').addEventListener('click', () => {
+            switchState('CONTACT');
+        });
+
+        document.getElementById('portfolio-contact-btn').addEventListener('click', () => {
+            switchState('CONTACT');
+        });
+
+        // --- Theme Toggle ---
+        let isDarkMode = true;
+        const themeBtn = document.getElementById('theme-btn');
+        
+        themeBtn.addEventListener('click', () => {
+            isDarkMode = !isDarkMode;
+            if (isDarkMode) {
+                document.body.classList.remove('light-mode');
+                themeBtn.textContent = 'white';
+            } else {
+                document.body.classList.add('light-mode');
+                themeBtn.textContent = 'black'; 
+            }
+        });
+
+        // --- Effects Toggle ---
+        let effectsOn = true;
+        const effectsBtn = document.getElementById('effects-btn');
+        const overlay = document.getElementById('effects-overlay');
+
+        effectsBtn.addEventListener('click', () => {
+            effectsOn = !effectsOn;
+            if (effectsOn) {
+                effectsBtn.classList.add('on');
+                overlay.style.opacity = '1';
+            } else {
+                effectsBtn.classList.remove('on');
+                overlay.style.opacity = '0';
+            }
+        });
+
+        // --- Dynamic Collision & Layout Logic ---
+        const waterfallInput = document.getElementById('custom-word');
+        const waterfallTrack = document.getElementById('waterfall-track');
+        const ghostWord = document.getElementById('ghost-word');
+        
+        const updateHerePosition = () => {
+            const ghostHere = document.getElementById('ghost-here');
+            const container = document.getElementById('app-container');
+            
+            if (ghostHere && container) {
+                const ghostRect = ghostHere.getBoundingClientRect();
+                const containerRect = container.getBoundingClientRect();
+                
+                const top = ghostRect.top - containerRect.top;
+                const left = ghostRect.left - containerRect.left;
+                
+                document.documentElement.style.setProperty('--dynamic-here-top', `${top}px`);
+                document.documentElement.style.setProperty('--dynamic-here-left', `${left}px`);
+                
+                let contactRight = left; 
+                const contactBtn = document.querySelector('#view-about .contact-btn');
+                
+                if (contactBtn) {
+                    const contactWidth = contactBtn.offsetWidth;
+                    const hereRight = left + ghostHere.offsetWidth;
+                    const windowWidth = window.innerWidth;
+                    
+                    const contactLeftEdge = windowWidth - contactRight - contactWidth;
+                    
+                    if (contactLeftEdge < hereRight + 30) {
+                        contactRight = windowWidth - hereRight - contactWidth - 30;
+                    }
+                    
+                    if (contactRight < 20) contactRight = 20;
+                }
+                
+                document.documentElement.style.setProperty('--dynamic-contact-right', `${contactRight}px`);
+            }
+        };
+
+        function buildWaterfall(word) {
+            waterfallTrack.innerHTML = '';
+            const displayWord = word.trim() === '' ? 'safe' : word;
+            
+            ghostWord.textContent = displayWord;
+
+            for (let i = 0; i < 80; i++) {
+                const div = document.createElement('div');
+                div.className = 'waterfall-word';
+                div.textContent = displayWord;
+                waterfallTrack.appendChild(div);
+            }
+            
+            requestAnimationFrame(() => {
+                updateHerePosition();
+            });
+        }
+        
+        waterfallInput.addEventListener('input', (e) => {
+            buildWaterfall(e.target.value);
+        });
+
+        window.addEventListener('resize', updateHerePosition);
+
+        // Init App on Load
+        buildWaterfall('safe');
+    </script>
+</body>
+</html>
